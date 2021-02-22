@@ -7,20 +7,10 @@ services:
     command:
     - --log=true
     - --log.level=DEBUG
-    - --accesslog=true
-    - --accesslog.fields.names.StartUTC=drop
-    - --api=true
-    - --api.insecure=true
     - --api.dashboard=true
-    - --ping=true
     - --entrypoints.http.address=:80
-    - --entrypoints.metrics.address=:8082
     - --providers.docker=true
     - --providers.docker.exposedByDefault=false
-    - --metrics.prometheus=true
-    - --metrics.prometheus.addEntryPointsLabels=true
-    - --metrics.prometheus.addServicesLabels=true
-    - --metrics.prometheus.entrypoint=metrics
     ports:
     - 127.0.0.1:80:80
     volumes:
@@ -29,56 +19,62 @@ services:
     restart: always
     labels:
       traefik.enable: "true"
-      traefik.http.services.traefik.loadbalancer.server.port: 8080
       traefik.http.routers.traefik.entrypoints: http
-      traefik.http.routers.traefik.rule: HostRegexp(`traefik.127.0.0.1.ip.go-nerd.de`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.routers.traefik.rule: HostRegexp(`traefik.127.0.0.1.ip.go-nerd.de`)
 
-  registry:
-    image: registry:2
-    ports:
-    - "127.0.0.1:5000:5000"
+  # curl -sv http://foo.127.0.0.1.ip.go-nerd.de
+  error-pages:
+    image: nginx:latest
+    volumes:
+    - ./error-pages/pages:/usr/share/nginx/error-pages
+    - ./error-pages/default.conf:/etc/nginx/conf.d/default.conf
     labels:
       traefik.enable: "true"
-      traefik.http.services.registry.loadbalancer.server.port: 5000
-      traefik.http.routers.registry.rule: HostRegexp(`registry.127.0.0.1.ip.go-nerd.de`) && PathPrefix(`/v2`)
-      traefik.http.routers.registry.entrypoints: http
+      traefik.http.services.error-pages-service.loadbalancer.server.port: 80
+      traefik.http.routers.error-pages.entrypoints: http
+      traefik.http.routers.error-pages.rule: HostRegexp(`{host:.+}`)
+      traefik.http.routers.error-pages.priority: 1
+      traefik.http.routers.error-pages.middlewares: error-pages-middleware
+      traefik.http.middlewares.error-pages-middleware.errors.status: 404
+      traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
+      traefik.http.middlewares.error-pages-middleware.errors.query: /404.html
+      traefik.http.middlewares.outage-middleware.errors.status: 500-599
+      traefik.http.middlewares.outage-middleware.errors.service: error-pages-service
+      traefik.http.middlewares.outage-middleware.errors.query: /5xx.html
 
-  web:
-    image: konradkleine/docker-registry-frontend:v2
-    depends_on:
-    - registry
-    environment:
-      ENV_DOCKER_REGISTRY_HOST: "registry"
-      ENV_DOCKER_REGISTRY_PORT: 5000
+  www-motd:
+    image: nginx:stable
+    volumes:
+    - ./service-motd/pages:/usr/share/nginx/html
+    - ./service-motd/default.conf:/etc/nginx/conf.d/default.conf
     labels:
       traefik.enable: "true"
-      traefik.http.services.web.loadbalancer.server.port: 80
-      traefik.http.routers.web.rule: HostRegexp(`hub.127.0.0.1.ip.go-nerd.de`)
-      traefik.http.routers.web.entrypoints: http
+      traefik.http.services.www-motd.loadbalancer.server.port: 80
+      traefik.http.routers.www-motd.entrypoints: http
+      traefik.http.routers.www-motd.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`)
+      traefik.http.routers.www-motd.priority: 2
 
+  # curl --silent --verbose --header "Cookie: maintenance-override=true" http://www.127.0.0.1.ip.go-nerd.de
+  # curl --silent --verbose --header "Cookie: motd=true" http://www.127.0.0.1.ip.go-nerd.de
   www:
     image: nginx:stable
+    volumes:
+    - ./service:/usr/share/nginx/html
     labels:
       traefik.enable: "true"
       traefik.http.services.www.loadbalancer.server.port: 80
-      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
       traefik.http.routers.www.entrypoints: http
-      #
-      #traefik.http.middlewares.www-latency.circuitbreaker.expression: "LatencyAtQuantileMS(50.0) > 100"
-      #
-      #traefik.http.middlewares.www.errors.status: 404
-      #traefik.http.middlewares.www.errors.service: httpbin
-      #traefik.http.middlewares.www.errors.query: /status/404
-      #
-      #PRIORITY
+      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `motd-read=true`)
+      #traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
+      traefik.http.routers.www.priority: 3
 
+  # curl -sv http://bin.127.0.0.1.ip.go-nerd.de/status/504
   httpbin:
     image: kennethreitz/httpbin
     labels:
       traefik.enable: "true"
       traefik.http.services.bin.loadbalancer.server.port: 80
-      traefik.http.routers.bin.rule: HostRegexp(`bin.127.0.0.1.ip.go-nerd.de`)
       traefik.http.routers.bin.entrypoints: http
-      #traefik.http.middlewares.bin.errors.status: 500-599
-      #traefik.http.middlewares.bin.errors.service: httpbin
-      #traefik.http.middlewares.bin.errors.query: /anything?error
+      traefik.http.routers.bin.rule: HostRegexp(`bin.127.0.0.1.ip.go-nerd.de`)
+      traefik.http.routers.bin.middlewares: outage-middleware
