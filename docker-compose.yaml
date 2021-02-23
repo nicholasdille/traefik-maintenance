@@ -23,7 +23,8 @@ services:
       traefik.http.routers.traefik.service: api@internal
       traefik.http.routers.traefik.rule: HostRegexp(`traefik.127.0.0.1.ip.go-nerd.de`)
 
-  # curl -sv http://foo.127.0.0.1.ip.go-nerd.de
+  # Serves error pages
+  # Test with non-existent host: curl -sv http://foo.127.0.0.1.ip.go-nerd.de
   error-pages:
     image: nginx:latest
     volumes:
@@ -33,16 +34,22 @@ services:
       traefik.enable: "true"
       traefik.http.services.error-pages-service.loadbalancer.server.port: 80
       traefik.http.routers.error-pages.entrypoints: http
+      # (1) Catch-all rule
       traefik.http.routers.error-pages.rule: HostRegexp(`{host:.+}`)
+      # (1) Lowest priority (served last)
       traefik.http.routers.error-pages.priority: 1
       traefik.http.routers.error-pages.middlewares: error-pages-middleware
+      # (1) Catch-all custom 404 page
       traefik.http.middlewares.error-pages-middleware.errors.status: 404
       traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
       traefik.http.middlewares.error-pages-middleware.errors.query: /404.html
+      # (2) Error pages for internal service errors
       traefik.http.middlewares.outage-middleware.errors.status: 500-599
       traefik.http.middlewares.outage-middleware.errors.service: error-pages-service
       traefik.http.middlewares.outage-middleware.errors.query: /5xx.html
 
+  # (4) Serves motto of the day (motd)
+  # Test: curl --silent --verbose http://www.127.0.0.1.ip.go-nerd.de
   www-motd:
     image: nginx:stable
     volumes:
@@ -52,7 +59,9 @@ services:
       traefik.enable: "true"
       traefik.http.services.www-motd.loadbalancer.server.port: 80
       traefik.http.routers.www-motd.entrypoints: http
+      # (4) Same rule as service
       traefik.http.routers.www-motd.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`)
+      # (4) Lower priority than service
       traefik.http.routers.www-motd.priority: 2
 
   # curl --silent --verbose --header "Cookie: maintenance-override=true" http://www.127.0.0.1.ip.go-nerd.de
@@ -65,11 +74,19 @@ services:
       traefik.enable: "true"
       traefik.http.services.www.loadbalancer.server.port: 80
       traefik.http.routers.www.entrypoints: http
+      # (1+2)
+      #traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`)
+      # (4) Show only if motd was already shown
       traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `motd-read=true`)
+      # (3) Show only if maintenance is overridden
       #traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
+      # (1+4) Higher priority than catch-all and motd
       traefik.http.routers.www.priority: 3
+      # (3) Use middleware defines earlier
+      traefik.http.routers.www.middlewares: outage-middleware
 
-  # curl -sv http://bin.127.0.0.1.ip.go-nerd.de/status/504
+  # (2) Helps to simulate server error
+  # Test: curl -sv http://bin.127.0.0.1.ip.go-nerd.de/status/504
   httpbin:
     image: kennethreitz/httpbin
     labels:
@@ -77,4 +94,7 @@ services:
       traefik.http.services.bin.loadbalancer.server.port: 80
       traefik.http.routers.bin.entrypoints: http
       traefik.http.routers.bin.rule: HostRegexp(`bin.127.0.0.1.ip.go-nerd.de`)
+      # (1) Higher priority than catch-all
+      traefik.http.routers.bin.priority: 3
+      # (2) Use widdleware defined earlier
       traefik.http.routers.bin.middlewares: outage-middleware
