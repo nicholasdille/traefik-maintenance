@@ -1,0 +1,7 @@
+version: "3.7"
+
+services:
+
+  www:
+    labels:
+      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)

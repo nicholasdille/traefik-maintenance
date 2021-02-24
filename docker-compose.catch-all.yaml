@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+
+  error-pages:
+    image: nginx:latest
+    volumes:
+    - ./error-pages/pages:/usr/share/nginx/error-pages
+    - ./error-pages/default.conf:/etc/nginx/conf.d/default.conf
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.error-pages-service.loadbalancer.server.port: 80
+      traefik.http.routers.error-pages.entrypoints: http
+      traefik.http.routers.error-pages.rule: HostRegexp(`{host:.+}`)
+      traefik.http.routers.error-pages.priority: 1
+      traefik.http.routers.error-pages.middlewares: error-pages-middleware
+      traefik.http.middlewares.error-pages-middleware.errors.status: 404
+      traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
+      traefik.http.middlewares.error-pages-middleware.errors.query: /404.html
+
+  www:
+    labels:
+      traefik.http.routers.www.priority: 100
