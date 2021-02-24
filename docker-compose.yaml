@@ -21,7 +21,7 @@ services:
       traefik.enable: "true"
       traefik.http.routers.traefik.entrypoints: http
       traefik.http.routers.traefik.service: api@internal
-      traefik.http.routers.traefik.rule: HostRegexp(`traefik.127.0.0.1.ip.go-nerd.de`)
+      traefik.http.routers.traefik.rule: HostRegexp(`traefik.localhost`)
 
   www:
     image: nginx:stable
@@ -31,4 +31,4 @@ services:
       traefik.enable: "true"
       traefik.http.services.www.loadbalancer.server.port: 80
       traefik.http.routers.www.entrypoints: http
-      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `motd-read=true`)
+      traefik.http.routers.www.rule: HostRegexp(`www.localhost`)

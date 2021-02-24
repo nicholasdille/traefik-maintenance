@@ -4,4 +4,4 @@ services:
 
   www:
     labels:
-      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.ip.go-nerd.de`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
+      traefik.http.routers.www.rule: HostRegexp(`www.localhost`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
