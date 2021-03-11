@@ -1,9 +1,9 @@
 ---
-title: 'Using #traefik error pages to handle unavailable services'
-date: 2021-02-24T16:02:00+01:00
+title: 'Using #traefik to display maintenance information'
+date: 2021-03-yyT16:02:00+01:00
 author: Nicholas Dille
 layout: post
-permalink: /blog/2021/02/24/using-traefik-error-pages-to-handle-unavailable-services/
+permalink: /blog/2021/03/yy/using-traefik-to-display-maintenance-information/
 categories:
   - Haufe-Lexware
 tags:
@@ -13,13 +13,18 @@ tags:
 ---
 XXX
 
-<img src="/media/2021/02/error-2129569_1920.jpg" style="object-fit: cover; object-position: bottom; width: 100%; height: 250px;" />
+# https://unsplash.com/photos/kID9sxbJ3BQ
+<img src="/media/2021/03/error-2129569_1920.jpg" style="object-fit: cover; object-position: bottom; width: 100%; height: 250px;" />
 
 <!--more-->
+
+XXX reference "part 1"
 
 ## traefik and the service
 
 XXX
+
+XXX https://github.com/nicholasdille/traefik-maintenance
 
 ```yaml
 version: "3.7"
@@ -66,9 +71,14 @@ curl -sv --resolve www.localhost:80:127.0.0.1 http://www.localhost
 
 XXX
 
-## Catching unavailable services
+```bash
+docker-compose config \
+    --file docker-compose.yaml
+```
 
-XXX
+## XXX
+
+XXX maintenance
 
 ```yaml
 version: "3.7"
@@ -96,22 +106,6 @@ services:
       traefik.http.routers.traefik.service: api@internal
       traefik.http.routers.traefik.rule: HostRegexp(`traefik.localhost`)
 
-  error-pages:
-    image: nginx:latest
-    volumes:
-    - ./error-pages/pages:/usr/share/nginx/error-pages
-    - ./error-pages/default.conf:/etc/nginx/conf.d/default.conf
-    labels:
-      traefik.enable: "true"
-      traefik.http.services.error-pages-service.loadbalancer.server.port: 80
-      traefik.http.routers.error-pages.entrypoints: http
-      traefik.http.routers.error-pages.rule: HostRegexp(`{host:.+}`)
-      traefik.http.routers.error-pages.priority: 1
-      traefik.http.routers.error-pages.middlewares: error-pages-middleware
-      traefik.http.middlewares.error-pages-middleware.errors.status: 404
-      traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
-      traefik.http.middlewares.error-pages-middleware.errors.query: /404.html
-
   www:
     image: nginx:stable
     volumes:
@@ -120,21 +114,20 @@ services:
       traefik.enable: "true"
       traefik.http.services.www.loadbalancer.server.port: 80
       traefik.http.routers.www.entrypoints: http
-      traefik.http.routers.www.rule: HostRegexp(`www.localhost`)
-      traefik.http.routers.www.priority: 100
+      traefik.http.routers.www.rule: HostRegexp(`www.localhost`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
 ```
 
 XXX
 
 ```bash
-curl -sv --resolve www2.localhost:80:127.0.0.1 http://www2.localhost
+docker-compose config \
+    --file docker-compose.yaml \
+    --file docker-compose.maintenance.yaml
 ```
 
-XXX
+## XXX
 
-## Returning custom error pages
-
-XXX
+XXX motd
 
 ```yaml
 version: "3.7"
@@ -162,24 +155,17 @@ services:
       traefik.http.routers.traefik.service: api@internal
       traefik.http.routers.traefik.rule: HostRegexp(`traefik.localhost`)
 
-  error-pages:
-    image: nginx:latest
+  www-motd:
+    image: nginx:stable
     volumes:
-    - ./error-pages/pages:/usr/share/nginx/error-pages
-    - ./error-pages/default.conf:/etc/nginx/conf.d/default.conf
+    - ./service-motd/pages:/usr/share/nginx/html
+    - ./service-motd/default.conf:/etc/nginx/conf.d/default.conf
     labels:
       traefik.enable: "true"
-      traefik.http.services.error-pages-service.loadbalancer.server.port: 80
-      traefik.http.routers.error-pages.entrypoints: http
-      traefik.http.routers.error-pages.rule: HostRegexp(`{host:.+}`)
-      traefik.http.routers.error-pages.priority: 1
-      traefik.http.routers.error-pages.middlewares: error-pages-middleware
-      traefik.http.middlewares.error-pages-middleware.errors.status: 404
-      traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
-      traefik.http.middlewares.error-pages-middleware.errors.query: /404.html
-      traefik.http.middlewares.outage-middleware.errors.status: 500-599
-      traefik.http.middlewares.outage-middleware.errors.service: error-pages-service
-      traefik.http.middlewares.outage-middleware.errors.query: /5xx.html
+      traefik.http.services.www-motd.loadbalancer.server.port: 80
+      traefik.http.routers.www-motd.entrypoints: http
+      traefik.http.routers.www-motd.rule: HostRegexp(`www.localhost`)
+      traefik.http.routers.www-motd.priority: 90
 
   www:
     image: nginx:stable
@@ -189,25 +175,13 @@ services:
       traefik.enable: "true"
       traefik.http.services.www.loadbalancer.server.port: 80
       traefik.http.routers.www.entrypoints: http
-      traefik.http.routers.www.rule: HostRegexp(`www.localhost`)
-      traefik.http.routers.www.priority: 100
-      traefik.http.routers.www.middlewares: outage-middleware
-
-  httpbin:
-    image: kennethreitz/httpbin
-    labels:
-      traefik.enable: "true"
-      traefik.http.services.bin.loadbalancer.server.port: 80
-      traefik.http.routers.bin.entrypoints: http
-      traefik.http.routers.bin.rule: HostRegexp(`bin.localhost`)
-      traefik.http.routers.bin.priority: 100
-      traefik.http.routers.bin.middlewares: outage-middleware
+      traefik.http.routers.www.rule: HostRegexp(`www.localhost`) && HeadersRegexp(`Cookie`, `motd-read=true`)
 ```
 
 XXX
 
 ```bash
-
+docker-compose config \
+    --file docker-compose.yaml \
+    --file docker-compose.motd.yaml
 ```
-
-XXX
