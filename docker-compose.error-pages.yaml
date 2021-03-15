@@ -1,0 +1,33 @@
+services:
+
+  error-pages:
+    image: nginx:latest
+    volumes:
+    - ./error-pages/pages:/usr/share/nginx/html
+    - ./error-pages/default.conf:/etc/nginx/conf.d/default.conf
+    - /etc/localtime:/etc/localtime:ro
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.error-pages.loadbalancer.server.port: 80
+      traefik.http.routers.error-pages.entrypoints: http
+      traefik.http.routers.error-pages.rule: HostRegexp(`error-pages.127.0.0.1.nip.io`)
+      traefik.http.routers.error-pages.priority: 2
+      traefik.http.middlewares.error-pages.errors.status: 500-599
+      traefik.http.middlewares.error-pages.errors.service: error-pages
+      traefik.http.middlewares.error-pages.errors.query: /5xx.html
+
+  www:
+    labels:
+      traefik.http.routers.www.middlewares: error-pages
+
+  httpbin:
+    image: kennethreitz/httpbin
+    volumes:
+    - /etc/localtime:/etc/localtime:ro
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.bin.loadbalancer.server.port: 80
+      traefik.http.routers.bin.entrypoints: http
+      traefik.http.routers.bin.rule: HostRegexp(`bin.127.0.0.1.nip.io`)
+      traefik.http.routers.bin.priority: 100
+      traefik.http.routers.bin.middlewares: error-pages

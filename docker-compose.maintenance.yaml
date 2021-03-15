@@ -1,7 +1,5 @@
-version: "3.7"
-
 services:
 
   www:
     labels:
-      traefik.http.routers.www.rule: HostRegexp(`www.localhost`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
+      traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.nip.io`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
