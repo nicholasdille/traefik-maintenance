@@ -1,0 +1,26 @@
+services:
+
+  www-ooo:
+    image: nginx:stable
+    volumes:
+    - ./www-ooo/pages:/usr/share/nginx/html
+    - ./www-ooo/default.conf:/etc/nginx/conf.d/default.conf
+    - /etc/localtime:/etc/localtime:ro
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.www-ooo.loadbalancer.server.port: 80
+      traefik.http.routers.www-ooo.entrypoints: http
+      traefik.http.routers.www-ooo.rule: HostRegexp(`www-ooo.127.0.0.1.nip.io`)
+      traefik.http.routers.www-ooo.priority: 90
+      traefik.http.middlewares.www-ooo.errors.status: 503
+      traefik.http.middlewares.www-ooo.errors.service: www-ooo
+      traefik.http.middlewares.www-ooo.errors.query: /index.html
+
+  www:
+    labels:
+      traefik.http.routers.www.priority: 100
+      traefik.http.services.www.loadbalancer.healthcheck.port: 81
+      traefik.http.services.www.loadbalancer.healthcheck.path: /
+      traefik.http.services.www.loadbalancer.healthcheck.interval: "10s"
+      traefik.http.services.www.loadbalancer.healthcheck.timeout: "3s"
+      traefik.http.routers.www.middlewares: www-ooo

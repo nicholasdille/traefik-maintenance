@@ -11,9 +11,8 @@ services:
       traefik.http.services.www-motd.loadbalancer.server.port: 80
       traefik.http.routers.www-motd.entrypoints: http
       traefik.http.routers.www-motd.rule: HostRegexp(`www.127.0.0.1.nip.io`)
-      traefik.http.routers.www-motd.priority: 90
+      traefik.http.routers.www-motd.priority: 80
 
   www:
     labels:
       traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.nip.io`) && ( HeadersRegexp(`Cookie`, `motd-read=true`) || PathPrefix(`/api/`) )
-      traefik.http.routers.www.priority: 100
