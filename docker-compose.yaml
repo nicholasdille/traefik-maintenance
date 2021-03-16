@@ -24,7 +24,8 @@ services:
   www:
     image: nginx:stable
     volumes:
-    - ./service:/usr/share/nginx/html
+    - ./www/pages:/usr/share/nginx/html
+    - ./www/default.conf:/etc/nginx/conf.d/default.conf
     - /etc/localtime:/etc/localtime:ro
     labels:
       traefik.enable: "true"
