@@ -1,7 +1,7 @@
 services:
 
   catch-all:
-    image: nginx:latest
+    image: nginx:stable
     volumes:
     - ./catch-all/pages:/usr/share/nginx/error-pages
     - ./catch-all/default.conf:/etc/nginx/conf.d/default.conf
