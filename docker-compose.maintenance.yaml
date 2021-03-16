@@ -1,5 +1,18 @@
 services:
 
+  www-maintenance-override:
+    image: nginx:stable
+    volumes:
+    - ./www-maintenance-override/pages:/usr/share/nginx/html
+    - ./www-maintenance-override/default.conf:/etc/nginx/conf.d/default.conf
+    - /etc/localtime:/etc/localtime:ro
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.www-maintenance-override.loadbalancer.server.port: 80
+      traefik.http.routers.www-maintenance-override.entrypoints: http
+      traefik.http.routers.www-maintenance-override.rule: HostRegexp(`www.127.0.0.1.nip.io`) && PathPrefix(`/maintenance-override/`)
+      traefik.http.routers.www-maintenance-override.priority: 110
+
   www:
     labels:
       traefik.http.routers.www.rule: HostRegexp(`www.127.0.0.1.nip.io`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
