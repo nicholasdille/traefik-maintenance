@@ -1,0 +1,54 @@
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: demo-qa-www
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+spec:
+  endpoints:
+  - dnsName: demo-qa.127.0.0.1.nip.io
+    recordTTL: 120
+    recordType: CNAME
+    targets:
+    - lb-internal.svc-5.k8s.127.0.0.1.nip.io
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: demo-qa-www
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+spec:
+  entryPoints:
+  - http
+  routes:
+  - kind: Rule
+    match: Host(`demo-qa.127.0.0.1.nip.io`) && PathPrefix(`/maintenance-override/`)
+    priority: 120
+    services:
+    - name: demo-qa-maintenance
+      port: 80
+      strategy: RoundRobin
+  - kind: Rule
+    match: Host(`demo-qa.127.0.0.1.nip.io`) && HeadersRegexp(`Cookie`, `maintenance-override=true`)
+    priority: 110
+    services:
+    - name: demo-qa-www
+      port: 80
+      strategy: RoundRobin
+  - kind: Rule
+    match: Host(`demo-qa.127.0.0.1.nip.io`)
+    priority: 100
+    services:
+    # For production, change to demo-qa-www
+    # For maintenance, change to demo-qa-maintenance
+    - name: demo-qa-www
+      port: 80
+      strategy: RoundRobin

@@ -1,0 +1,135 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-www-config
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+data:
+  default.conf: |
+    server {
+        listen       80;
+        server_name  _;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html;
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-www-root-content
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+data:
+  index.html: |
+    <html>
+    <head>
+        <title>Service</title>
+    </head>
+    <body>
+        <h1>Service</h1>
+
+        Welcome!
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-www-api-content
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+data:
+  index.html: |
+    <html>
+    <head>
+        <title>Service API</title>
+    </head>
+    <body>
+        <h1>Service API</h1>
+
+        Welcome to the API!
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-qa-www
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+spec:
+  selector:
+    matchLabels:
+      app: demo
+      stage: qa
+      component: www
+  template:
+    metadata:
+      labels:
+        app: demo
+        stage: qa
+        component: www
+    spec:
+      volumes:
+      - name: tz-config
+        hostPath:
+          path: /usr/share/zoneinfo/Europe/Berlin
+      - name: config
+        configMap:
+          name: demo-qa-www-config
+      - name: root-content
+        configMap:
+          name: demo-qa-www-root-content
+      - name: api-content
+        configMap:
+          name: demo-qa-www-api-content
+      containers:
+      - name: demo-qa
+        image: nginx:stable
+        volumeMounts:
+        - mountPath: /etc/localtime
+          name: tz-config
+        - mountPath: /etc/nginx/conf.d
+          name: config
+        - mountPath: /usr/share/nginx/html
+          name: root-content
+        - mountPath: /usr/share/nginx/html/api
+          name: api-content
+        ports:
+        - name: http
+          containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-qa-www
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: www
+spec:
+  selector:
+    app: demo
+    stage: qa
+    component: www
+  ports:
+  - port: 80
+    targetPort: http
+

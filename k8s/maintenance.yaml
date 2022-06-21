@@ -1,0 +1,141 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-maintenance-config
+  labels:
+    app: demo
+    stage: qa
+    component: maintenance
+data:
+  default.conf: |
+    server {
+        listen       80;
+        server_name  _;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html;
+        }
+
+        location /maintenance-override/ {
+            root   /usr/share/nginx/html2;
+            index  index.html;
+            add_header Set-Cookie "maintenance-override=true; Domain=demo-qa.127.0.0.1.nip.io; Path=/; Max-Age=300; SameSite=Strict";
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-maintenance-content
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: maintenance
+data:
+  index.html: |
+    <html>
+    <head>
+        <title>Service maintenance override</title>
+    </head>
+    <body>
+        <h1>Service maintenance override</h1>
+
+        <p>For admins only!</p>
+
+        <p>Please return to <a href="http://demo-qa.127.0.0.1.nip.io/">service</a>.</p>
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-qa-maintenance-ooo-content
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: maintenance
+data:
+  index.html: |
+    <html>
+    <head>
+        <title>Service maintenance</title>
+    </head>
+    <body>
+        <h1>Service out-of-order</h1>
+
+        <p>Maintenance</p>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-qa-maintenance
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: maintenance
+spec:
+  selector:
+    matchLabels:
+      app: demo
+      stage: qa
+      component: maintenance
+  template:
+    metadata:
+      labels:
+        app: demo
+        stage: qa
+        component: maintenance
+    spec:
+      volumes:
+      - name: tz-config
+        hostPath:
+          path: /usr/share/zoneinfo/Europe/Berlin
+      - name: config
+        configMap:
+          name: demo-qa-maintenance-config
+      - name: content
+        configMap:
+          name: demo-qa-maintenance-content
+      - name: ooo-content
+        configMap:
+          name: demo-qa-maintenance-ooo-content
+      containers:
+      - name: demo-qa
+        image: nginx:stable
+        volumeMounts:
+        - mountPath: /etc/localtime
+          name: tz-config
+        - mountPath: /etc/nginx/conf.d
+          name: config
+        - mountPath: /usr/share/nginx/html
+          name: ooo-content
+        - mountPath: /usr/share/nginx/html2/maintenance-override
+          name: content
+        ports:
+        - name: http
+          containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-qa-maintenance
+  namespace: demo-qa
+  labels:
+    app: demo
+    stage: qa
+    component: maintenance
+spec:
+  selector:
+    app: demo
+    stage: qa
+    component: maintenance
+  ports:
+  - port: 80
+    targetPort: http
